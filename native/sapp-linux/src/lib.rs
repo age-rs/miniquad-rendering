@@ -11,12 +11,18 @@
     unused_mut
 )]
 
-mod wayland;
-
 mod rand;
 pub use rand::*;
 
-pub use wayland::gl::{self, *};
+mod egl;
+pub mod gl3;
+
+pub use egl::*;
+pub use gl3::*;
+
+pub use gl3 as gl;
+
+use std::option::Option::None;
 
 static mut _sapp: _sapp_state = _sapp_state {
     valid: false,
@@ -84,9 +90,9 @@ static mut _sapp: _sapp_state = _sapp_state {
         high_dpi: false,
         fullscreen: false,
         alpha: false,
-        window_title: 0 as *const i8,
+        window_title: 0 as *const _,
         user_cursor: false,
-        html5_canvas_name: 0 as *const i8,
+        html5_canvas_name: 0 as *const _,
         html5_canvas_resize: false,
         html5_preserve_drawing_buffer: false,
         html5_premultiplied_alpha: false,
@@ -374,8 +380,8 @@ unsafe fn init_state(desc: *const sapp_desc) {
 
     _sapp.desc = *desc;
     _sapp.first_frame = true;
-    _sapp.window_width = _sapp_def(_sapp.desc.width, 640, 0);
-    _sapp.window_height = _sapp_def(_sapp.desc.height, 480, 0);
+    _sapp.window_width = 480;
+    _sapp.window_height = 320;
     _sapp.framebuffer_width = _sapp.window_width;
     _sapp.framebuffer_height = _sapp.window_height;
     _sapp.sample_count = _sapp_def(_sapp.desc.sample_count, 1, 0);
@@ -606,13 +612,22 @@ unsafe fn _sapp_frame() {
     _sapp.frame_count = _sapp.frame_count.wrapping_add(1);
 }
 
+extern "C" {
+    fn init();
+    fn swap_buffers();
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn sapp_run(mut desc: *const sapp_desc) -> libc::c_int {
     init_state(desc);
     init_keytable();
 
-    wayland::init_window();
+    init();
 
+    loop {
+        _sapp_frame();
+        swap_buffers();
+    }
     return 0 as libc::c_int;
 }
 
