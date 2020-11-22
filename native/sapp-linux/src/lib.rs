@@ -11,6 +11,9 @@
     unused_mut
 )]
 
+mod magic;
+use magic::*;
+
 mod rand;
 pub use rand::*;
 
