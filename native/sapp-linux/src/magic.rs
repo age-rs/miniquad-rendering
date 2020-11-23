@@ -731,9 +731,13 @@ pub unsafe extern "C" fn init() {
     println!("surface creasted");
     display = eglGetDisplay(gbm_device);
     println!("egl got display");
-    eglInitialize(display, 0 as *mut EGLint, 0 as *mut EGLint);
+    if eglInitialize(display, 0 as *mut EGLint, 0 as *mut EGLint) == 0 {
+        println!("failed to eglInitailize");
+    }
     println!("egl initialized");
-    eglBindAPI(0x30a2 as libc::c_int as EGLenum);
+    if eglBindAPI(0x30a0 as libc::c_int as EGLenum) == 0 {
+        println!("failed to bind egl api");
+    }
     println!("egl api binded");
     eglGetConfigs(display, 0 as *mut EGLConfig, 0 as libc::c_int, &mut count);
     configs = malloc(
