@@ -5,12 +5,12 @@ pub type gbm_surface = ();
 
 extern "C" {
     #[no_mangle]
-    fn drmHandleEvent(fd: libc::c_int, evctx: drmEventContextPtr)
-     -> libc::c_int;
-    #[no_mangle]
     fn select(__nfds: libc::c_int, __readfds: *mut fd_set,
               __writefds: *mut fd_set, __exceptfds: *mut fd_set,
               __timeout: *mut timeval) -> libc::c_int;
+    #[no_mangle]
+    fn drmHandleEvent(fd: libc::c_int, evctx: drmEventContextPtr)
+     -> libc::c_int;
     #[no_mangle]
     fn drmModeFreeResources(ptr: drmModeResPtr);
     #[no_mangle]
@@ -105,7 +105,8 @@ extern "C" {
                      config_size: EGLint, num_config_0: *mut EGLint)
      -> EGLBoolean;
     #[no_mangle]
-    fn eglGetDisplay(display_id: EGLNativeDisplayType) -> EGLDisplay;
+    fn eglGetProcAddress(procname: *const libc::c_char)
+     -> __eglMustCastToProperFunctionPointerType;
     #[no_mangle]
     fn eglInitialize(dpy: EGLDisplay, major: *mut EGLint, minor: *mut EGLint)
      -> EGLBoolean;
@@ -121,10 +122,10 @@ extern "C" {
     #[no_mangle]
     fn eglBindAPI(api: EGLenum) -> EGLBoolean;
     #[no_mangle]
-    fn glClear(mask: GLbitfield);
-    #[no_mangle]
     fn glClearColor(red: GLclampf, green: GLclampf, blue: GLclampf,
                     alpha: GLclampf);
+    #[no_mangle]
+    fn glClear(mask: GLbitfield);
     #[no_mangle]
     fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
     #[no_mangle]
@@ -138,6 +139,11 @@ extern "C" {
     fn close(__fd: libc::c_int) -> libc::c_int;
     #[no_mangle]
     fn printf(_: *const libc::c_char, _: ...) -> libc::c_int;
+    #[no_mangle]
+    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
+    #[no_mangle]
+    fn strstr(_: *const libc::c_char, _: *const libc::c_char)
+     -> *mut libc::c_char;
 }
 pub type __uint8_t = libc::c_uchar;
 pub type __uint16_t = libc::c_ushort;
@@ -309,7 +315,6 @@ pub const GBM_BO_USE_CURSOR_64X64: gbm_bo_flags = 2;
 pub const GBM_BO_USE_CURSOR: gbm_bo_flags = 2;
 pub const GBM_BO_USE_SCANOUT: gbm_bo_flags = 1;
 pub type khronos_int32_t = int32_t;
-pub type EGLNativeDisplayType = *mut gbm_device;
 pub type EGLNativeWindowType = *mut libc::c_void;
 pub type EGLint = khronos_int32_t;
 pub type EGLBoolean = libc::c_uint;
@@ -317,6 +322,9 @@ pub type EGLDisplay = *mut libc::c_void;
 pub type EGLConfig = *mut libc::c_void;
 pub type EGLSurface = *mut libc::c_void;
 pub type EGLContext = *mut libc::c_void;
+pub type __eglMustCastToProperFunctionPointerType
+    =
+    Option<unsafe extern "C" fn() -> ()>;
 pub type EGLenum = libc::c_uint;
 pub type GLbitfield = libc::c_uint;
 pub type GLclampf = libc::c_float;
@@ -326,6 +334,10 @@ pub struct drm_fb {
     pub bo: *mut gbm_bo,
     pub fb_id: uint32_t,
 }
+pub type PFNEGLGETPLATFORMDISPLAYEXTPROC
+    =
+    Option<unsafe extern "C" fn(_: EGLenum, _: *mut libc::c_void,
+                                _: *const EGLint) -> EGLDisplay>;
 //----------------------------------------------------------------------
 //--------  Trying to get OpenGL ES screen on RPi4 without X
 //--------  based on drm-gbm https://github.com/eyelash/tutorials/blob/master/drm-gbm.c
@@ -605,6 +617,26 @@ pub unsafe extern "C" fn try_device(mut device_name: *mut libc::c_char)
                *const libc::c_char);
     return 1 as libc::c_int;
 }
+unsafe extern "C" fn has_ext(mut extension_list: *const libc::c_char,
+                             mut ext: *const libc::c_char) -> libc::c_int {
+    let mut ptr: *const libc::c_char = extension_list;
+    let mut len: libc::c_int = strlen(ext) as libc::c_int;
+    if ptr.is_null() || *ptr as libc::c_int == '\u{0}' as i32 {
+        return 0 as libc::c_int
+    }
+    loop  {
+        ptr = strstr(ptr, ext);
+        if ptr.is_null() { return 0 as libc::c_int }
+        if *ptr.offset(len as isize) as libc::c_int == ' ' as i32 ||
+               *ptr.offset(len as isize) as libc::c_int == '\u{0}' as i32 {
+            return 1 as libc::c_int
+        }
+        ptr = ptr.offset(len as isize)
+    };
+}
+#[no_mangle]
+pub static mut eglGetPlatformDisplayEXT: PFNEGLGETPLATFORMDISPLAYEXTPROC =
+    None;
 #[no_mangle]
 pub unsafe extern "C" fn init() {
     let mut fb_0: *mut drm_fb = 0 as *mut drm_fb;
@@ -654,8 +686,31 @@ pub unsafe extern "C" fn init() {
         eglQueryString(0 as EGLDisplay, 0x3055 as libc::c_int) as
             *mut libc::c_char;
     printf(b"%s\n\x00" as *const u8 as *const libc::c_char, egl_exts_client);
-    panic!();
-    display = eglGetDisplay(gbm_device);
+    if has_ext(egl_exts_client,
+               b"EGL_EXT_platform_base\x00" as *const u8 as
+                   *const libc::c_char) == 0 as libc::c_int {
+        printf(b"No EGL_EXT_platform_base extension!\n\x00" as *const u8 as
+                   *const libc::c_char);
+    }
+    eglGetPlatformDisplayEXT =
+        ::std::mem::transmute::<*mut libc::c_void,
+                                PFNEGLGETPLATFORMDISPLAYEXTPROC>(::std::mem::transmute::<__eglMustCastToProperFunctionPointerType,
+                                                                                         *mut libc::c_void>(eglGetProcAddress(b"eglGetPlatformDisplayEXT\x00"
+                                                                                                                                  as
+                                                                                                                                  *const u8
+                                                                                                                                  as
+                                                                                                                                  *const libc::c_char)));
+    //display = eglGetDisplay (gbm_device);
+    display =
+        eglGetPlatformDisplayEXT.expect("non-null function pointer")(0x31d7 as
+                                                                         libc::c_int
+                                                                         as
+                                                                         EGLenum,
+                                                                     gbm_device
+                                                                         as
+                                                                         *mut libc::c_void,
+                                                                     0 as
+                                                                         *const EGLint);
     eglInitialize(display, 0 as *mut EGLint, 0 as *mut EGLint);
     eglBindAPI(0x30a0 as libc::c_int as EGLenum);
     eglGetConfigs(display, 0 as *mut EGLConfig, 0 as libc::c_int, &mut count);

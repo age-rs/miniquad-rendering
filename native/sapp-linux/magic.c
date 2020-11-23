@@ -222,6 +222,29 @@ int try_device(char *device_name) {
     return 1;    
 }
 
+static int has_ext(const char *extension_list, const char *ext)
+{
+	const char *ptr = extension_list;
+	int len = strlen(ext);
+
+	if (ptr == NULL || *ptr == '\0')
+		return 0;
+
+	while (1) {
+		ptr = strstr(ptr, ext);
+		if (!ptr)
+			return 0;
+
+		if (ptr[len] == ' ' || ptr[len] == '\0')
+			return 1;
+
+		ptr += len;
+	}
+}
+
+typedef EGLDisplay (EGLAPIENTRYP PFNEGLGETPLATFORMDISPLAYEXTPROC) (EGLenum platform, void *native_display, const EGLint *attrib_list);
+PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT;
+	
 void init(void) {
     struct drm_fb *fb;
 	int ret;
@@ -263,7 +286,15 @@ void init(void) {
     char *egl_exts_client = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
     printf("%s\n", egl_exts_client);
 
-    display = eglGetDisplay (gbm_device);
+    if (has_ext(egl_exts_client, "EGL_EXT_platform_base") == 0) {
+        printf("No EGL_EXT_platform_base extension!\n");
+    }
+    eglGetPlatformDisplayEXT = (void *)eglGetProcAddress("eglGetPlatformDisplayEXT");
+
+    #define EGL_PLATFORM_GBM_KHR              0x31D7
+    
+    //display = eglGetDisplay (gbm_device);
+    display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, gbm_device, NULL);
     eglInitialize (display, NULL ,NULL);
     eglBindAPI(EGL_OPENGL_ES_API);
     
