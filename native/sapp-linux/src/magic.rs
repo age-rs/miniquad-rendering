@@ -733,7 +733,7 @@ pub unsafe extern "C" fn init() {
     println!("egl got display");
     eglInitialize(display, 0 as *mut EGLint, 0 as *mut EGLint);
     println!("egl initialized");
-    eglBindAPI(0x30a0 as libc::c_int as EGLenum);
+    eglBindAPI(0x30a2 as libc::c_int as EGLenum);
     println!("egl api binded");
     eglGetConfigs(display, 0 as *mut EGLConfig, 0 as libc::c_int, &mut count);
     configs = malloc(
