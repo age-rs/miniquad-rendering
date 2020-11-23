@@ -258,6 +258,11 @@ void init(void) {
                                      GBM_FORMAT_XRGB8888,
                                      GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 
+
+    printf("requesting extensions\n");
+    char *egl_exts_client = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+    printf("%s\n", egl_exts_client);
+
     display = eglGetDisplay (gbm_device);
     eglInitialize (display, NULL ,NULL);
     eglBindAPI(EGL_OPENGL_ES_API);
