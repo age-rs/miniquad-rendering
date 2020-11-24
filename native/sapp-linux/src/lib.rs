@@ -17,10 +17,10 @@ mod magic;
 mod rand;
 pub use rand::*;
 
-mod egl;
+//mod egl;
 pub mod gl3;
 
-pub use egl::*;
+//pub use egl::*;
 pub use gl3::*;
 
 pub use gl3 as gl;
@@ -618,20 +618,25 @@ unsafe fn _sapp_frame() {
 extern "C" {
     fn init();
     fn swap_buffers();
+
+    fn drm_screen_width() -> libc::c_int;
+    fn drm_screen_height() -> libc::c_int;
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sapp_run(mut desc: *const sapp_desc) -> libc::c_int {
+    init();
+    
     init_state(desc);
     init_keytable();
 
-    init();
+    _sapp.window_width = drm_screen_width() as _;
+    _sapp.window_height = drm_screen_height() as _;
 
     loop {
         _sapp_frame();
         swap_buffers();
     }
-    return 0 as libc::c_int;
 }
 
 #[no_mangle]
