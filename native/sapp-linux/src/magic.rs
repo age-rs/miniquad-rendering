@@ -1,8 +1,9 @@
 use ::libc;
+
 pub type gbm_device = ();
 pub type gbm_bo = ();
 pub type gbm_surface = ();
-    
+
 extern "C" {
     #[no_mangle]
     fn select(__nfds: libc::c_int, __readfds: *mut fd_set,
@@ -534,12 +535,12 @@ unsafe extern "C" fn init_gl() -> libc::c_int {
     let mut ret: GLint = 0;
     static mut context_attribs: [EGLint; 3] =
         [0x3098 as libc::c_int, 2 as libc::c_int, 0x3038 as libc::c_int];
-    static mut config_attribs: [EGLint; 13] =
+    static mut config_attribs: [EGLint; 15] =
         [0x3033 as libc::c_int, 0x4 as libc::c_int, 0x3024 as libc::c_int,
-         1 as libc::c_int, 0x3023 as libc::c_int, 1 as libc::c_int,
-         0x3022 as libc::c_int, 1 as libc::c_int, 0x3021 as libc::c_int,
-         0 as libc::c_int, 0x3040 as libc::c_int, 0x4 as libc::c_int,
-         0x3038 as libc::c_int];
+         8 as libc::c_int, 0x3023 as libc::c_int, 8 as libc::c_int,
+         0x3022 as libc::c_int, 8 as libc::c_int, 0x3021 as libc::c_int,
+         0 as libc::c_int, 0x3025 as libc::c_int, 8 as libc::c_int,
+         0x3040 as libc::c_int, 0x4 as libc::c_int, 0x3038 as libc::c_int];
     let mut get_platform_display: PFNEGLGETPLATFORMDISPLAYEXTPROC = None;
     get_platform_display =
         ::std::mem::transmute::<*mut libc::c_void,
