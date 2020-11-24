@@ -12,7 +12,7 @@
 )]
 
 mod magic;
-use magic::*;
+//use magic::{init, swap_buffers};
 
 mod rand;
 pub use rand::*;
